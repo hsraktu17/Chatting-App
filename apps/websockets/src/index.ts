@@ -3,19 +3,42 @@ import http from "http";
 import { Server } from "socket.io";
 
 const app = express();
+const PORT = 3000;
+
 const server = http.createServer(app);
 const io = new Server(server);
 
 const users: { [key: string]: string } = {};
 
 io.on("connection", (socket) => {
-  console.log(`User connected ${socket.id}`);
+  console.log(`User connected: ${socket.id}`);
 
-  io.on("join", (username) => {
+  socket.on("join", (username) => {
     users[socket.id] = username;
-    console.log(`${username} joined ID: ${socket.id}`);
+    console.log(`${username} joined with ID: ${socket.id}`);
     console.log(users);
+  });
+
+  socket.on("private", ({ receiver, message }) => {
+    const senderUsername = users[socket.id];
+    const receiverName = users[receiver];
+    if (senderUsername && receiver && message) {
+      io.to(receiver).emit("private", {
+        receiver: receiverName,
+        sender: senderUsername,
+        message,
+      });
+    } else {
+      console.log("Error sending message: Invalid data");
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`User disconnected: ${socket.id}`);
+    delete users[socket.id];
   });
 });
 
-app.listen(3001, () => console.log("socket.io started"));
+server.listen(PORT, () =>
+  console.log(`WebSocket server is running on port ${PORT}`),
+);
